@@ -12,6 +12,7 @@ import datetime
 import configparser
 import importlib
 
+
 VERSION = importlib.metadata.version('clikan')
 
 
@@ -204,7 +205,7 @@ def promote(ids):
 
 
 @clikan.command()
-@click.argument('id', nargs=-1)
+@click.argument('ids', nargs=-1)
 def regress(ids):
     """Regress task"""
     config = read_config_yaml()
@@ -227,6 +228,19 @@ def regress(ids):
     if ('repaint' in config and config['repaint']):
         display()
 
+@clikan.command()
+def refresh():
+    """Refresh the task numbers and remove deleted tasks."""
+    config = read_config_yaml()
+    dd = read_data(config)
+    click.echo('Refreshing task numbers.')
+    new_data = {i+1: value for i, value in enumerate(dd['data'].values())}
+    dd['data'] = new_data
+    dd['deleted'] = {}
+
+    write_data(config, dd)
+    if ('repaint' in config and config['repaint']):
+        display()
 
 # Use a non-Click function to allow for repaint to work.
 

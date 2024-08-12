@@ -2,10 +2,27 @@
 
 import click
 from click.testing import CliRunner
-from clikan import configure, clikan, add, promote, show, regress, delete
+from clikan import configure, clikan, add, promote, show, regress, delete, refresh, read_data, read_config_yaml, write_data
 import os
 import pathlib
 import tempfile
+import pytest
+
+# add fixture to clear data before each test
+@pytest.fixture(autouse=True)
+def clear_data():
+    config = read_config_yaml()
+    write_data(config, {"data": {}, "deleted": {}})
+
+@pytest.fixture
+def add_one_task():
+    runner = CliRunner()
+    runner.invoke(add, ["n_--task_test"])
+
+@pytest.fixture
+def add_three_tasks():
+    runner = CliRunner()
+    runner.invoke(add, ["n_--task_test_multi_1", "n_--task_test_multi_2", "n_--task_test_multi_3"])
 
 # Configure Tests
 
@@ -62,39 +79,30 @@ def test_command_a():
 
 # Show Tests
 
-
-def test_no_command():
+def test_no_command(add_one_task):
     runner = CliRunner()
     result = runner.invoke(clikan, [])
     assert result.exit_code == 0
     assert 'n_--task_test' in result.output
 
 
-def test_command_s():
+def test_command_s(add_one_task):
     runner = CliRunner()
     result = runner.invoke(clikan, ["s"])
     assert result.exit_code == 0
     assert 'n_--task_test' in result.output
 
 
-def test_command_show():
+def test_command_show(add_one_task):
     runner = CliRunner()
     result = runner.invoke(show)
     assert result.exit_code == 0
     assert 'n_--task_test' in result.output
 
 
-def test_command_not_show():
-    runner = CliRunner()
-    result = runner.invoke(show)
-    assert result.exit_code == 0
-    assert 'blahdyblah' not in result.output
-
-
 # Promote Tests
 
-
-def test_command_promote():
+def test_command_promote(add_one_task):
     runner = CliRunner()
     result = runner.invoke(clikan, ['promote', '1'])
     assert result.exit_code == 0
@@ -107,7 +115,7 @@ def test_command_promote():
 # Delete Tests
 
 
-def test_command_delete():
+def test_command_delete(add_one_task):
     runner = CliRunner()
     result = runner.invoke(clikan, ['delete', '1'])
     assert result.exit_code == 0
@@ -116,6 +124,20 @@ def test_command_delete():
     assert result.exit_code == 0
     assert 'No existing task with' in result.output
 
+# Refresh Tests
+
+def test_command_refresh(add_three_tasks):
+    runner = CliRunner()
+    runner.invoke(clikan, ['delete', '1'])
+    result = runner.invoke(clikan, ['refresh'])
+    assert result.exit_code == 0
+    assert 'Refreshing task numbers.' in result.output
+    
+    config = read_config_yaml()
+    data = read_data(config).get('data', {})
+
+    assert len(data) == 2
+    print(data[1][1] == "n_--task_test_multi_2")
 
 ## Multiple Argument Tests
 
@@ -128,7 +150,7 @@ def test_command_a_multi():
 
 
 # Show Test
-def test_command_show_multi():
+def test_command_show_multi(add_three_tasks):
     runner = CliRunner()
     result = runner.invoke(show)
     assert result.exit_code == 0
@@ -138,7 +160,7 @@ def test_command_show_multi():
 
 
 # Promote Tests
-def test_command_promote_multi():
+def test_command_promote_multi(add_three_tasks):
     runner = CliRunner()
     result = runner.invoke(clikan, ['promote', '1', '2'])
     assert result.exit_code == 0
@@ -151,7 +173,7 @@ def test_command_promote_multi():
 
 
 # Delete Tests
-def test_command_delete_multi():
+def test_command_delete_multi(add_three_tasks):
     runner = CliRunner()
     result = runner.invoke(clikan, ['delete', '1', '2'])
     assert result.exit_code == 0
@@ -162,15 +184,10 @@ def test_command_delete_multi():
     assert 'No existing task with that id: 1' in result.output
     assert 'No existing task with that id: 2' in result.output
 
-
-# Show after delete Test
-def test_command_show_multi_after_delete():
-    runner = CliRunner()
-    result = runner.invoke(show)
-    assert result.exit_code == 0
-    assert 'n_--task_test_multi_1' not in result.output
-    assert 'n_--task_test_multi_2' not in result.output
-    assert 'n_--task_test_multi_3' in result.output
+    results = runner.invoke(show)
+    assert 'n_--task_test_multi_1' not in results.output
+    assert 'n_--task_test_multi_2' not in results.output
+    assert 'n_--task_test_multi_3' in results.output
 
 
 # Repaint Tests
