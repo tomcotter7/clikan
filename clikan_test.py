@@ -99,6 +99,12 @@ def test_command_show(add_one_task):
     assert result.exit_code == 0
     assert 'n_--task_test' in result.output
 
+def test_command_not_show():
+    runner = CliRunner()
+    result = runner.invoke(show)
+    assert result.exit_code == 0
+    assert 'blahdyblah' not in result.output
+
 
 # Promote Tests
 
