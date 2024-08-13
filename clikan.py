@@ -10,10 +10,14 @@ from textwrap import wrap
 import collections
 import datetime
 import configparser
-import importlib
+try:
+    from importlib import metadata
+except ImportError: # for Python<3.8
+    import importlib_metadata as metadata
+__version__ = metadata.version("jsonschema")
 
 
-VERSION = importlib.metadata.version('clikan')
+VERSION = metadata.version('clikan')
 
 
 class Config(object):
@@ -86,13 +90,11 @@ def read_config(ctx, param, value):
 def clikan():
     """clikan: CLI personal kanban """
 
-
-@clikan.command()
-def configure():
-    """Place default config file in CLIKAN_HOME or HOME"""
+def setup_project(name: str):
+    """Setup a new project"""
     home = get_clikan_home()
-    data_path = os.path.join(home, ".clikan.dat")
-    config_path = os.path.join(home, ".clikan.yaml")
+    data_path = os.path.join(home, f".{name}.dat")
+    config_path = os.path.join(home, f".{name}.yaml")
     if (os.path.exists(config_path) and not
             click.confirm('Config file exists. Do you want to overwrite?')):
         return
@@ -101,6 +103,11 @@ def configure():
         yaml.dump(conf, outfile, default_flow_style=False)
     click.echo("Creating %s" % config_path)
 
+@clikan.command()
+def configure():
+    """Place default config file in CLIKAN_HOME or HOME"""
+    setup_project("default")
+    
 
 @clikan.command()
 @click.argument('tasks', nargs=-1)
@@ -242,6 +249,62 @@ def refresh():
     if ('repaint' in config and config['repaint']):
         display()
 
+
+@clikan.command()
+@click.argument('name', required=False)
+def switch(name=None):
+    """Switch to a different project"""
+    if name is None:
+        name = "default"
+    home = get_clikan_home()
+    config_path = os.path.join(home, f".{name}.yaml")
+    if not os.path.exists(config_path):
+        click.echo("Project %s does not exist." % name)
+        click.echo("Creating project %s." % name)
+        setup_project(name)
+
+    click.echo("Switching to project %s." % name)
+    with open(home + "/.current", 'w') as project_file:
+        project_file.write(name)
+    display()
+
+@clikan.command()
+def projects():
+    """List all projects"""
+    home = get_clikan_home()
+    current_project = read_current_project()
+    projects = [f for f in os.listdir(home) if f.endswith(".yaml") if f != f".{current_project}.yaml"]
+    click.echo(f"*{current_project}")
+    for project in projects:
+        click.echo(project[1:-5])
+
+@clikan.command()
+@click.argument('name')
+def delproj(name):
+    if name == "default":
+        click.echo("Can't delete default project.")
+        return
+
+    home = get_clikan_home()
+    config_path = os.path.join(home, f".{name}.yaml")
+    if not os.path.exists(config_path):
+        click.echo("Project %s does not exist." % name)
+        return
+
+    if not click.confirm(f"Delete project {name}?"):
+        return
+    
+    config = read_config_yaml()
+    data = config["clikan_data"]
+    os.remove(config_path)
+    os.remove(data)
+    click.echo(f"Deleted project {name}")
+
+    with open(home + "/.current", 'w') as project_file:
+        project_file.write("default")
+    display()
+
+
 # Use a non-Click function to allow for repaint to work.
 
 
@@ -250,6 +313,7 @@ def display():
     """Show tasks in clikan"""
     config = read_config_yaml()
     dd = read_data(config)
+    project = read_current_project()
     todos, inprogs, dones = split_items(config, dd)
     if 'limits' in config and 'done' in config['limits']:
         dones = dones[0:int(config['limits']['done'])]
@@ -264,7 +328,7 @@ def display():
     table.add_column(
         "[bold yellow]todo[/bold yellow]",
         no_wrap=True,
-        footer="clikan"
+        footer=f"clikan ({project})"
     )
     table.add_column('[bold green]in-progress[/bold green]', no_wrap=True)
     table.add_column(
@@ -292,6 +356,7 @@ def read_data(config):
                 print("Ensure %s exists, as you specified it "
                       "as the clikan data file." % config['clikan_data'])
                 print(exc)
+                sys.exit()
     except IOError:
         click.echo("No data, initializing data file.")
         write_data(config, {"data": {}, "deleted": {}})
@@ -308,22 +373,29 @@ def write_data(config, data):
 def get_clikan_home():
     home = os.environ.get('CLIKAN_HOME')
     if not home:
-        home = os.path.expanduser('~')
+        home = os.path.expanduser('~/.clikan/')
     return home
 
+def read_current_project():
+    home = get_clikan_home()
+    with open(home + "/.current", 'r') as project_file:
+        return project_file.read().strip()
 
 def read_config_yaml():
     """Read the app config from ~/.clikan.yaml"""
+        
+    project = read_current_project()
+
+    home = get_clikan_home()
     try:
-        home = get_clikan_home()
-        with open(home + "/.clikan.yaml", 'r') as stream:
+        with open(home + f"/.{project}.yaml", 'r') as stream:
             try:
                 return yaml.safe_load(stream)
             except yaml.YAMLError:
-                print("Ensure %s/.clikan.yaml is valid, expected YAML." % home)
+                print("Ensure %s/.%s.yaml is valid, expected YAML." % home, project)
                 sys.exit()
     except IOError:
-        print("Ensure %s/.clikan.yaml exists and is valid." % home)
+        print("Ensure %s/.%s.yaml exists and is valid." % home, project)
         sys.exit()
 
 
