@@ -53,6 +53,7 @@ class AliasedGroup(DefaultGroup):
         # Step two: find the config object and ensure it's there.  This
         # will create the config object is missing.
         cfg = ctx.ensure_object(Config)
+        read_config(ctx, None, None)
 
         # Step three: lookup an explicit command aliase in the config
         if cmd_name in cfg.aliases:
@@ -281,6 +282,7 @@ def projects():
 @clikan.command()
 @click.argument('name')
 def delproj(name):
+    """Delete a project"""
     if name == "default":
         click.echo("Can't delete default project.")
         return
