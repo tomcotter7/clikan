@@ -379,7 +379,7 @@ def get_clikan_home():
     return home
 
 def read_current_project():
-    home = get_clikan_home()
+    home = get_clikan_home().rstrip("/")
     with open(home + "/.current", 'r') as project_file:
         return project_file.read().strip()
 
