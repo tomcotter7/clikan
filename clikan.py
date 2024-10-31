@@ -174,6 +174,7 @@ def delete(ids):
 
 @clikan.command()
 @click.argument('ids', nargs=-1)
+@click.argument('task', nargs=1)
 def promote(ids):
     """Promote task"""
     config = read_config_yaml()
@@ -235,6 +236,37 @@ def regress(ids):
     write_data(config, dd)
     if ('repaint' in config and config['repaint']):
         display()
+
+@clikan.command()
+@click.argument('id', nargs=1)
+@click.argument('task', nargs=1)
+def edit(id, task):
+    """Edit task"""
+    config = read_config_yaml()
+    dd = read_data(config)
+
+    if ('limits' in config and 'taskname' in config['limits']):
+        taskname_length = config['limits']['taskname']
+    else:
+        taskname_length = 40
+
+    if len(task) > taskname_length:
+        click.echo('Task must be at most %s chars, Brevity counts: %s'
+                   % (taskname_length, task))
+        return
+
+    item = dd['data'].get(int(id))
+    if item is None:
+        click.echo('No existing task with id: %s' % id)
+    else:
+        entry = [item[0], task, item[2], timestamp()]
+        dd['data'][int(id)] = entry
+        click.echo('Edited task %s.' % id)
+
+    write_data(config, dd)
+    if ('repaint' in config and config['repaint']):
+        display()
+
 
 @clikan.command()
 def refresh():
