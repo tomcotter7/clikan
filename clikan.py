@@ -110,10 +110,26 @@ def configure():
     setup_project("default")
     
 
+
+
 @clikan.command()
-@click.argument('tasks', nargs=-1)
-def add(tasks):
-    """Add a tasks in todo"""
+@click.argument('task', nargs=1)
+@click.option("--date", "-d", help="Planned date to complete task. Must be in the form of 'YYYY-MM-DD HH:MM'")
+def add(task, date):
+    """Add a task in todo"""
+
+    def parse_date(date: str) -> datetime.datetime:
+        if date in ["today", "tomorrow", "nextweek"]:
+            today = datetime.datetime.now()
+            if date == "today":
+                return today
+            if date == "tomorrow":
+                return today + datetime.timedelta(days=1)
+            if date == "nextweek":
+                return today + datetime.timedelta(days=7)
+
+        return datetime.datetime.fromisoformat(date)
+
     config = read_config_yaml()
     dd = read_data(config)
 
@@ -122,24 +138,27 @@ def add(tasks):
     else:
         taskname_length = 40
 
-    for task in tasks:
-        if len(task) > taskname_length:
-            click.echo('Task must be at most %s chars, Brevity counts: %s'
-                       % (taskname_length, task))
+    if len(task) > taskname_length:
+        click.echo('Task must be at most %s chars, Brevity counts: %s'
+                   % (taskname_length, task))
+    else:
+        todos, _, _ = split_items(config, dd)
+        if ('limits' in config and 'todo' in config['limits'] and
+                int(config['limits']['todo']) <= len(todos)):
+            click.echo('No new todos, limit reached already.')
         else:
-            todos, inprogs, dones = split_items(config, dd)
-            if ('limits' in config and 'todo' in config['limits'] and
-                    int(config['limits']['todo']) <= len(todos)):
-                click.echo('No new todos, limit reached already.')
-            else:
-                od = collections.OrderedDict(sorted(dd['data'].items()))
-                new_id = 1
-                if bool(od):
-                    new_id = next(reversed(od)) + 1
-                entry = ['todo', task, timestamp(), timestamp()]
-                dd['data'].update({new_id: entry})
-                click.echo("Creating new task w/ id: %d -> %s"
-                           % (new_id, task))
+            target_date = None
+            if date:
+                target_date = timestamp(parse_date(date))
+
+            od = collections.OrderedDict(sorted(dd['data'].items()))
+            new_id = 1
+            if bool(od):
+                new_id = next(reversed(od)) + 1
+            entry = ['todo', task, timestamp(), target_date]
+            dd['data'].update({new_id: entry})
+            click.echo("Creating new task w/ id: %d -> %s"
+                       % (new_id, task))
 
     write_data(config, dd)
     if ('repaint' in config and config['repaint']):
@@ -178,7 +197,7 @@ def promote(ids):
     """Promote task"""
     config = read_config_yaml()
     dd = read_data(config)
-    todos, inprogs, dones = split_items(config, dd)
+    _, inprogs, _ = split_items(config, dd)
 
     for id in ids:
         try:
@@ -258,7 +277,7 @@ def edit(id, task):
     if item is None:
         click.echo('No existing task with id: %s' % id)
     else:
-        entry = [item[0], task, item[2], timestamp()]
+        entry = [item[0], task, timestamp(), item[3]]
         dd['data'][int(id)] = entry
         click.echo('Edited task %s.' % id)
 
@@ -337,26 +356,40 @@ def delproj(name):
         project_file.write("default")
     display()
 
+@clikan.command()
+@click.option('--all', '-a', is_flag=True, help="Show all tasks due today across all projects")
+def today(all):
+    """Show tasks due today"""
+    config = read_config_yaml()
+    dd = read_data(config)
+
+    if not all:
+        todos, inprogs, dones = split_items(config, dd, today=True)
+        todos = '\n'.join([str(x) for x in todos])
+        inprogs = '\n'.join([str(x) for x in inprogs])
+        dones = '\n'.join([str(x) for x in dones])
+
+        draw_table(todos, inprogs, dones, read_current_project())
+        return
+
+    projects = [f for f in os.listdir(get_clikan_home()) if f.endswith(".yaml")]
+    for project in projects:
+        p = project[1:-5]
+        config = read_config_yaml(p)
+        dd = read_data(config)
+        todos, inprogs, dones = split_items(config, dd, today=True)
+        todos = '\n'.join([str(x) for x in todos])
+        inprogs = '\n'.join([str(x) for x in inprogs])
+        dones = '\n'.join([str(x) for x in dones])
+        draw_table(todos, inprogs, dones, p)
+
+
+
 
 # Use a non-Click function to allow for repaint to work.
 
-
-def display():
+def draw_table(todos, inprogs, dones, project):
     console = Console()
-    """Show tasks in clikan"""
-    config = read_config_yaml()
-    dd = read_data(config)
-    project = read_current_project()
-    todos, inprogs, dones = split_items(config, dd)
-    if 'limits' in config and 'done' in config['limits']:
-        dones = dones[0:int(config['limits']['done'])]
-    else:
-        dones = dones[0:10]
-
-    todos = '\n'.join([str(x) for x in todos])
-    inprogs = '\n'.join([str(x) for x in inprogs])
-    dones = '\n'.join([str(x) for x in dones])
-
     table = Table(show_header=True, show_footer=True)
     table.add_column(
         "[bold yellow]todo[/bold yellow]",
@@ -373,6 +406,22 @@ def display():
     table.add_row(todos, inprogs, dones)
     console.print(table)
 
+def display():
+    """Show tasks in clikan"""
+    config = read_config_yaml()
+    dd = read_data(config)
+    project = read_current_project()
+    todos, inprogs, dones = split_items(config, dd)
+    if 'limits' in config and 'done' in config['limits']:
+        dones = dones[0:int(config['limits']['done'])]
+    else:
+        dones = dones[0:10]
+
+    todos = '\n'.join([str(x) for x in todos])
+    inprogs = '\n'.join([str(x) for x in inprogs])
+    dones = '\n'.join([str(x) for x in dones])
+
+    draw_table(todos, inprogs, dones, project)
 
 @clikan.command()
 def show():
@@ -414,10 +463,11 @@ def read_current_project():
     with open(home + "/.current", 'r') as project_file:
         return project_file.read().strip()
 
-def read_config_yaml():
+def read_config_yaml(project:str|None=None):
     """Read the app config from ~/.clikan.yaml"""
-        
-    project = read_current_project()
+    
+    if not project:
+        project = read_current_project()
 
     home = get_clikan_home()
     try:
@@ -432,21 +482,31 @@ def read_config_yaml():
         sys.exit()
 
 
-def split_items(config, dd):
+def split_items(config, dd, today=False):
     todos = []
     inprogs = []
     dones = []
 
     for key, value in dd['data'].items():
+        s = f"[{key}] {value[1]}"
+        dd = parse_timestamp(value[3]) if value[3] else None
+        is_today = dd and dd.date() == datetime.datetime.now().date()
+        if today and not is_today:
+            continue
+
+        if is_today:
+            s = f"[bold red]{s}[/bold red]"
         if value[0] == 'todo':
-            todos.append("[%d] %s" % (key, value[1]))
+            todos.append(s)
         elif value[0] == 'inprogress':
-            inprogs.append("[%d] %s" % (key, value[1]))
+            inprogs.append(s)
         else:
-            dones.insert(0, "[%d] %s" % (key, value[1]))
+            dones.append(s)
 
     return todos, inprogs, dones
 
+def parse_timestamp(ts: str) -> datetime.datetime:
+    return datetime.datetime.strptime(ts, '%Y-%b-%d %H:%M:%S')
 
-def timestamp():
-    return '{:%Y-%b-%d %H:%M:%S}'.format(datetime.datetime.now())
+def timestamp(dt: datetime.datetime = datetime.datetime.now()) -> str:
+    return '{:%Y-%b-%d %H:%M:%S}'.format(dt)
