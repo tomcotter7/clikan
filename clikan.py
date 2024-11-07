@@ -174,7 +174,6 @@ def delete(ids):
 
 @clikan.command()
 @click.argument('ids', nargs=-1)
-@click.argument('task', nargs=1)
 def promote(ids):
     """Promote task"""
     config = read_config_yaml()
