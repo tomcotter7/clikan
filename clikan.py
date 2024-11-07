@@ -325,9 +325,20 @@ def projects():
     home = get_clikan_home()
     current_project = read_current_project()
     projects = [f for f in os.listdir(home) if f.endswith(".yaml") if f != f".{current_project}.yaml"]
-    click.echo(f"*{current_project}")
+    click.echo("\nAvailable Projects:")
+    click.echo("-" * 20)  # Adding a separator line
+    
+    # Format current project with highlighting
+    click.secho(f"→ {current_project} (active)", fg="green", bold=True)
+    
+    # List other projects with indentation
     for project in projects:
-        click.echo(project[1:-5])
+        project_name = project[1:-5]  # Remove the .yaml extension
+        click.echo(f"  {project_name}")
+    
+    # Add a footer with total count
+    click.echo("-" * 20)
+    click.echo(f"Total projects: {len(projects) + 1}\n")
 
 @clikan.command()
 @click.argument('name')
