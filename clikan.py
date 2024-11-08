@@ -392,7 +392,8 @@ def today(all):
         todos = '\n'.join([str(x) for x in todos])
         inprogs = '\n'.join([str(x) for x in inprogs])
         dones = '\n'.join([str(x) for x in dones])
-        draw_table(todos, inprogs, dones, p)
+        if todos or inprogs or dones:
+            draw_table(todos, inprogs, dones, p)
 
 
 
@@ -501,7 +502,7 @@ def split_items(config, dd, today=False):
     for key, value in dd['data'].items():
         s = f"[{key}] {value[1]}"
         dd = parse_timestamp(value[3]) if value[3] else None
-        is_today = dd and dd.date() == datetime.datetime.now().date()
+        is_today = dd and dd.date() <= datetime.datetime.now().date()
         if today and not is_today:
             continue
 
