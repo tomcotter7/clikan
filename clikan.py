@@ -274,10 +274,11 @@ def projects():
     """List all projects"""
     home = get_clikan_home()
     current_project = read_current_project()
-    projects = [f for f in os.listdir(home) if f.endswith(".yaml") if f != f".{current_project}.yaml"]
-    click.echo(f"*{current_project}")
+    projects = [f for f in os.listdir(home) if f.endswith(".yaml") if f != f".{current_project}.yaml" and f != ".default.yaml"]
+    click.echo(click.style(f"*{current_project}", bold=True))
     for project in projects:
         click.echo(project[1:-5])
+    click.echo("default")
 
 @clikan.command()
 @click.argument('name')
@@ -378,15 +379,20 @@ def get_clikan_home():
         home = os.path.expanduser('~/.clikan/')
     return home
 
-def read_current_project():
-    home = get_clikan_home()
+def read_current_project() -> str:
+    home = get_clikan_home().rstrip("/")
     with open(home + "/.current", 'r') as project_file:
-        return project_file.read().strip()
+        project = project_file.read().strip()
+        if not project:
+            project = "default"
+        return project
 
 def read_config_yaml():
     """Read the app config from ~/.clikan.yaml"""
         
     project = read_current_project()
+    if not project:
+        project = "default"
 
     home = get_clikan_home()
     try:
