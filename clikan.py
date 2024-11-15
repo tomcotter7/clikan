@@ -10,11 +10,8 @@ from textwrap import wrap
 import collections
 import datetime
 import configparser
-try:
-    from importlib import metadata
-except ImportError: # for Python<3.8
-    import importlib_metadata as metadata
-__version__ = metadata.version("jsonschema")
+from importlib import metadata
+# __version__ = metadata.version("jsonschema")
 
 
 VERSION = metadata.version('clikan')
@@ -103,10 +100,16 @@ def setup_project(name: str):
         conf = {'clikan_data': data_path}
         yaml.dump(conf, outfile, default_flow_style=False)
     click.echo("Creating %s" % config_path)
+    
 
 @clikan.command()
 def configure():
     """Place default config file in CLIKAN_HOME or HOME"""
+    home = get_clikan_home()
+    current = os.path.join(home, ".current")
+    if not os.path.exists(current):
+        with open(current, 'w') as project_file:
+            project_file.write("default")
     setup_project("default")
     
 
@@ -468,6 +471,8 @@ def get_clikan_home():
     home = os.environ.get('CLIKAN_HOME')
     if not home:
         home = os.path.expanduser('~/.clikan/')
+        if not os.path.exists(home) :
+            os.makedirs(home)
     return home
 
 def read_current_project() -> str:
