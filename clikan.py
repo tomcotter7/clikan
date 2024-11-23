@@ -114,6 +114,17 @@ def configure():
     
 
 
+def parse_date(date: str) -> datetime.datetime:
+    if date in ["today", "tomorrow", "nextweek"]:
+        today = datetime.datetime.now()
+        if date == "today":
+            return today
+        if date == "tomorrow":
+            return today + datetime.timedelta(days=1)
+        if date == "nextweek":
+            return today + datetime.timedelta(days=7)
+
+    return datetime.datetime.fromisoformat(date)
 
 @clikan.command()
 @click.argument('task', nargs=1)
@@ -121,17 +132,6 @@ def configure():
 def add(task, date):
     """Add a task in todo"""
 
-    def parse_date(date: str) -> datetime.datetime:
-        if date in ["today", "tomorrow", "nextweek"]:
-            today = datetime.datetime.now()
-            if date == "today":
-                return today
-            if date == "tomorrow":
-                return today + datetime.timedelta(days=1)
-            if date == "nextweek":
-                return today + datetime.timedelta(days=7)
-
-        return datetime.datetime.fromisoformat(date)
 
     config = read_config_yaml()
     dd = read_data(config)
@@ -260,7 +260,7 @@ def regress(ids):
 
 @clikan.command()
 @click.argument('id', nargs=1)
-@click.argument('--task', "-t", help="New task name")
+@click.option('--task', "-t", help="New task name")
 @click.option("--date", "-d", help="Planned date to complete task. Must be in the form of 'YYYY-MM-DD HH:MM'")
 def edit(id, task, date):
     """Edit task"""
@@ -285,6 +285,8 @@ def edit(id, task, date):
             task = item[1]
         if not date:
             date = item[3]
+        else:
+            date = timestamp(parse_date(date))
         entry = [item[0], task, timestamp(), date]
         dd['data'][int(id)] = entry
         click.echo('Edited task %s.' % id)
