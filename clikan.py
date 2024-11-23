@@ -260,8 +260,9 @@ def regress(ids):
 
 @clikan.command()
 @click.argument('id', nargs=1)
-@click.argument('task', nargs=1)
-def edit(id, task):
+@click.argument('--task', "-t", help="New task name")
+@click.option("--date", "-d", help="Planned date to complete task. Must be in the form of 'YYYY-MM-DD HH:MM'")
+def edit(id, task, date):
     """Edit task"""
     config = read_config_yaml()
     dd = read_data(config)
@@ -271,7 +272,7 @@ def edit(id, task):
     else:
         taskname_length = 40
 
-    if len(task) > taskname_length:
+    if task and len(task) > taskname_length:
         click.echo('Task must be at most %s chars, Brevity counts: %s'
                    % (taskname_length, task))
         return
@@ -280,7 +281,11 @@ def edit(id, task):
     if item is None:
         click.echo('No existing task with id: %s' % id)
     else:
-        entry = [item[0], task, timestamp(), item[3]]
+        if not task:
+            task = item[1]
+        if not date:
+            date = item[3]
+        entry = [item[0], task, timestamp(), date]
         dd['data'][int(id)] = entry
         click.echo('Edited task %s.' % id)
 
