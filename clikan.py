@@ -334,7 +334,7 @@ def projects():
     """List all projects"""
     home = get_clikan_home()
     current_project = read_current_project()
-    projects = [f for f in os.listdir(home) if f.endswith(".yaml") if f != f".{current_project}.yaml" and f != ".default.yaml"]
+    projects = [f[1:-5] for f in os.listdir(home) if f.endswith(".yaml") if f != f".{current_project}.yaml"]
     click.echo("\nAvailable Projects:")
     click.echo("-" * 20)  # Adding a separator line
     
@@ -343,7 +343,7 @@ def projects():
     
     # List other projects with indentation
     for project in projects:
-        project_name = project[1:-5]  # Remove the .yaml extension
+        project_name = project
         click.echo(f"  {project_name}")
     
     # Add a footer with total count
