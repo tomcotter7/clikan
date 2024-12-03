@@ -11,7 +11,20 @@ import datetime
 import configparser
 from importlib import metadata
 
+from typing import Any
+from pydantic import BaseModel
+# __version__ = metadata.version("jsonschema")
+
+
 VERSION = metadata.version('clikan')
+
+
+class Entry(BaseModel):
+    task: str
+    status: str
+    last_updated: str 
+    target_date: str|None
+    desc: str
 
 class Config(object):
     """The config in this example only holds aliases."""
@@ -123,6 +136,24 @@ def parse_date(date: str) -> datetime.datetime:
 
 @clikan.command()
 @click.argument('task', nargs=1)
+def expand(task):
+    """Add a short description to the task, for more detail"""
+    config = read_config_yaml()
+    dd = read_data(config)
+    item = dd['data'].get(int(task))
+
+    if item is None:
+        click.echo('No existing task with that id: %d' % int(task))
+        return
+
+    if item.desc:
+        click.echo(f"Task title: {item.task}")
+        click.echo(f"Task description: {item.desc}")
+    else:
+        click.echo(f"Task {task} has no description yet. Use 'edit' to add one.")
+
+@clikan.command()
+@click.argument('task', nargs=1)
 @click.option("--date", "-d", help="Planned date to complete task. Must be in the form of 'YYYY-MM-DD HH:MM'")
 def add(task, date):
     """Add a task in todo"""
@@ -140,7 +171,7 @@ def add(task, date):
         click.echo('Task must be at most %s chars, Brevity counts: %s'
                    % (taskname_length, task))
     else:
-        todos, _, _ = split_items(config, dd)
+        todos, _, _ = split_items(dd)
         if ('limits' in config and 'todo' in config['limits'] and
                 int(config['limits']['todo']) <= len(todos)):
             click.echo('No new todos, limit reached already.')
@@ -153,7 +184,8 @@ def add(task, date):
             new_id = 1
             if bool(od):
                 new_id = next(reversed(od)) + 1
-            entry = ['todo', task, timestamp(), target_date]
+
+            entry = Entry(task=task, status='todo', last_updated=timestamp(), target_date=target_date, desc="")
             dd['data'].update({new_id: entry})
             click.echo("Creating new task w/ id: %d -> %s"
                        % (new_id, task))
@@ -176,8 +208,8 @@ def delete(ids):
             if item is None:
                 click.echo('No existing task with that id: %d' % int(id))
             else:
-                item[0] = 'deleted'
-                item[2] = timestamp()
+                item.status = 'deleted'
+                item.last_updated = timestamp()
                 dd['deleted'].update({int(id): item})
                 dd['data'].pop(int(id))
                 click.echo('Removed task %d.' % int(id))
@@ -195,14 +227,14 @@ def promote(ids):
     """Promote task"""
     config = read_config_yaml()
     dd = read_data(config)
-    _, inprogs, _ = split_items(config, dd)
+    _, inprogs, _ = split_items(dd)
 
     for id in ids:
         try:
             item = dd['data'].get(int(id))
             if item is None:
                 click.echo('No existing task with that id: %s' % id)
-            elif item[0] == 'todo':
+            elif item.status == 'todo':
                 if ('limits' in config and 'wip' in config['limits'] and
                         int(config['limits']['wip']) <= len(inprogs)):
                     click.echo(
@@ -211,14 +243,14 @@ def promote(ids):
                     )
                 else:
                     click.echo('Promoting task %s to in-progress.' % id)
-                    dd['data'][int(id)] = [
-                        'inprogress',
-                        item[1], timestamp(),
-                        item[3]
-                    ]
-            elif item[0] == 'inprogress':
+                    item.status = 'inprogress'
+                    item.last_updated = timestamp()
+                    dd['data'][int(id)] = item
+            elif item.status == 'inprogress':
                 click.echo('Promoting task %s to done.' % id)
-                dd['data'][int(id)] = ['done', item[1], timestamp(), item[3]]
+                item.status = 'done'
+                item.last_updated = timestamp()
+                dd['data'][int(id)] = item
             else:
                 click.echo('Can not promote %s, already done.' % id)
         except ValueError:
@@ -240,12 +272,16 @@ def regress(ids):
         item = dd['data'].get(int(id))
         if item is None:
             click.echo('No existing task with id: %s' % id)
-        elif item[0] == 'done':
+        elif item.status == 'done':
             click.echo('Regressing task %s to in-progress.' % id)
-            dd['data'][int(id)] = ['inprogress', item[1], timestamp(), item[3]]
-        elif item[0] == 'inprogress':
+            item.status = 'inprogress'
+            item.last_updated = timestamp()
+            dd['data'][int(id)] = item
+        elif item.status == 'inprogress':
             click.echo('Regressing task %s to todo.' % id)
-            dd['data'][int(id)] = ['todo', item[1], timestamp(), item[3]]
+            item.status = 'todo'
+            item.last_updated = timestamp()
+            dd['data'][int(id)] = item
         else:
             click.echo('Already in todo, can not regress %s' % id)
 
@@ -257,7 +293,8 @@ def regress(ids):
 @click.argument('id', nargs=1)
 @click.option('--task', "-t", help="New task name")
 @click.option("--date", "-d", help="Planned date to complete task. Must be in the form of 'YYYY-MM-DD HH:MM'")
-def edit(id, task, date):
+@click.option("--desc", help="Description of the task")
+def edit(id, task, date, desc):
     """Edit task"""
     config = read_config_yaml()
     dd = read_data(config)
@@ -275,35 +312,54 @@ def edit(id, task, date):
     item = dd['data'].get(int(id))
     if item is None:
         click.echo('No existing task with id: %s' % id)
+    elif task is None and date is None and desc is None:
+        click.echo('Nothing to edit.')
     else:
-        if not task:
-            task = item[1]
-        if not date:
-            date = item[3]
-        else:
-            date = timestamp(parse_date(date))
-        entry = [item[0], task, timestamp(), date]
-        dd['data'][int(id)] = entry
+        new_item = item.model_copy()
+        if task:
+            new_item.task = task
+        if date:
+            new_item.target_date = timestamp(parse_date(date))
+        if desc:
+            new_item.desc = desc
+        
+        new_item.last_updated = timestamp()
+        dd['data'][int(id)] = new_item
         click.echo('Edited task %s.' % id)
+        write_data(config, dd)
 
-    write_data(config, dd)
     if ('repaint' in config and config['repaint']):
         display()
 
 
 @clikan.command()
-def refresh():
+@click.option('--all', '-a', is_flag=True, help="Refresh all tasks across all projects")
+def refresh(all: bool):
     """Refresh the task numbers and remove deleted tasks."""
-    config = read_config_yaml()
-    dd = read_data(config)
-    click.echo('Refreshing task numbers.')
-    new_data = {i+1: value for i, value in enumerate(dd['data'].values())}
-    dd['data'] = new_data
-    dd['deleted'] = {}
 
-    write_data(config, dd)
-    if ('repaint' in config and config['repaint']):
-        display()
+    click.echo('Refreshing task numbers.')
+    
+    def refresh(dd: dict[str, Any]) -> dict[str, Any]:
+        new_data = {i+1: value for i, value in enumerate(dd['data'].values())}
+        dd['data'] = new_data
+        dd['deleted'] = {}
+        return dd
+    
+    if not all:
+        config = read_config_yaml()
+        dd = read_data(config)
+        refresh(dd)
+        write_data(config, dd)
+        if ('repaint' in config and config['repaint']):
+            display()
+        return
+
+    projects = [f[1:-5] for f in os.listdir(get_clikan_home()) if f.endswith(".yaml")]
+    for project in projects:
+        config = read_config_yaml(project)
+        dd = read_data(config)
+        refresh(dd)
+        write_data(config, dd)
 
 
 @clikan.command()
@@ -380,7 +436,7 @@ def today(all):
     dd = read_data(config)
 
     if not all:
-        todos, inprogs, dones = split_items(config, dd, today=True)
+        todos, inprogs, dones = split_items(dd, today=True)
         todos = '\n'.join([str(x) for x in todos])
         inprogs = '\n'.join([str(x) for x in inprogs])
         dones = '\n'.join([str(x) for x in dones])
@@ -393,7 +449,7 @@ def today(all):
         p = project[1:-5]
         config = read_config_yaml(p)
         dd = read_data(config)
-        todos, inprogs, dones = split_items(config, dd, today=True)
+        todos, inprogs, dones = split_items(dd, today=True)
         todos = '\n'.join([str(x) for x in todos])
         inprogs = '\n'.join([str(x) for x in inprogs])
         dones = '\n'.join([str(x) for x in dones])
@@ -428,7 +484,7 @@ def display(all: bool = False):
     config = read_config_yaml()
     dd = read_data(config)
     project = read_current_project()
-    todos, inprogs, dones = split_items(config, dd)
+    todos, inprogs, dones = split_items(dd)
     if 'limits' in config and 'done' in config['limits']:
         dones = dones[0:int(config['limits']['done'])]
     else:
@@ -446,12 +502,34 @@ def show(all):
     display(all)
 
 
-def read_data(config):
+def read_data(config: dict[str, Any]) -> dict[str, dict[int, Entry]]:
     """Read the existing data from the config datasource"""
     try:
         with open(config["clikan_data"], 'r') as stream:
             try:
-                return yaml.safe_load(stream)
+                data = yaml.safe_load(stream)
+                return {
+                        "data": {
+                            int(k): Entry(
+                                status=v[0],
+                                task=v[1],
+                                last_updated=v[2],
+                                target_date=v[3],
+                                desc=v[4] if len(v) > 4 else ''
+                            )
+                            for k, v in data["data"].items()
+                        },
+                        "deleted": {
+                            int(k): Entry(
+                                status=v[0],
+                                task=v[1],
+                                last_updated=v[2],
+                                target_date=v[3],
+                                desc=v[4] if len(v) > 4 else ''
+                            )
+                            for k, v in data["deleted"].items()
+                        }
+                }
             except yaml.YAMLError as exc:
                 print("Ensure %s exists, as you specified it "
                       "as the clikan data file." % config['clikan_data'])
@@ -464,10 +542,18 @@ def read_data(config):
             return yaml.safe_load(stream)
 
 
-def write_data(config, data):
+def write_data(config: dict[str, Any], data: dict[str, dict[int, Entry]]):
     """Write the data to the config datasource"""
+    formatted_data = {
+        "data": {
+            k: [v.status, v.task, v.last_updated, v.target_date, v.desc] for k, v in data["data"].items()
+        },
+        "deleted": {
+            k: [v.status, v.task, v.last_updated, v.target_date, v.desc] for k, v in data["deleted"].items()
+        }
+    }
     with open(config["clikan_data"], 'w') as outfile:
-        yaml.dump(data, outfile, default_flow_style=False)
+        yaml.dump(formatted_data, outfile, default_flow_style=False)
 
 
 def get_clikan_home():
@@ -506,16 +592,16 @@ def read_config_yaml(project:str|None=None):
         sys.exit()
 
 
-def split_items(config, dd, today=False):
+def split_items(dd: dict[str, dict[int, Entry]], today: bool=False):
     todos = []
     inprogs = []
     dones = []
 
     for key, value in dd['data'].items():
-        s = f"[{key}] {value[1]}"
-        dd = parse_timestamp(value[3]) if value[3] else None
-        is_today = dd and dd.date() == datetime.datetime.now().date()
-        is_overdue = dd and dd.date() < datetime.datetime.now().date()
+        s = f"[{key}] {value.task}"
+        target_date = parse_timestamp(value.target_date) if value.target_date else None
+        is_today = target_date and target_date.date() == datetime.datetime.now().date()
+        is_overdue = target_date and target_date.date() < datetime.datetime.now().date()
         if today and not (is_today or is_overdue):
             continue
         
@@ -523,9 +609,9 @@ def split_items(config, dd, today=False):
             s = f"[bold blue]{s}[/bold blue]"
         if is_overdue:
             s = f"[bold red]{s}[/bold red]"
-        if value[0] == 'todo':
+        if value.status == 'todo':
             todos.append(s)
-        elif value[0] == 'inprogress':
+        elif value.status == 'inprogress':
             inprogs.append(s)
         else:
             dones.append(s)
