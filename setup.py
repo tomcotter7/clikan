@@ -21,7 +21,8 @@ setup(
         'Click',
         'click-default-group',
         'pyyaml',
-        'rich'
+        'rich',
+        'pydantic'
     ],
     entry_points='''
         [console_scripts]
