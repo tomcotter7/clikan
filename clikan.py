@@ -6,16 +6,12 @@ from click_default_group import DefaultGroup
 import yaml
 import os
 import sys
-from textwrap import wrap
 import collections
 import datetime
 import configparser
 from importlib import metadata
-# __version__ = metadata.version("jsonschema")
-
 
 VERSION = metadata.version('clikan')
-
 
 class Config(object):
     """The config in this example only holds aliases."""
@@ -34,7 +30,6 @@ class Config(object):
 
 
 pass_config = click.make_pass_decorator(Config, ensure=True)
-
 
 class AliasedGroup(DefaultGroup):
     """This subclass of a group supports looking up aliases in a config
@@ -428,7 +423,7 @@ def draw_table(todos, inprogs, dones, project):
     table.add_row(todos, inprogs, dones)
     console.print(table)
 
-def display():
+def display(all: bool = False):
     """Show tasks in clikan"""
     config = read_config_yaml()
     dd = read_data(config)
@@ -446,8 +441,9 @@ def display():
     draw_table(todos, inprogs, dones, project)
 
 @clikan.command()
-def show():
-    display()
+@click.option('--all', '-a', is_flag=True, help="Show all projects")
+def show(all):
+    display(all)
 
 
 def read_data(config):
@@ -518,11 +514,14 @@ def split_items(config, dd, today=False):
     for key, value in dd['data'].items():
         s = f"[{key}] {value[1]}"
         dd = parse_timestamp(value[3]) if value[3] else None
-        is_today = dd and dd.date() <= datetime.datetime.now().date()
-        if today and not is_today:
+        is_today = dd and dd.date() == datetime.datetime.now().date()
+        is_overdue = dd and dd.date() < datetime.datetime.now().date()
+        if today and not (is_today or is_overdue):
             continue
-
+        
         if is_today:
+            s = f"[bold blue]{s}[/bold blue]"
+        if is_overdue:
             s = f"[bold red]{s}[/bold red]"
         if value[0] == 'todo':
             todos.append(s)
