@@ -432,32 +432,7 @@ def delproj(name):
 @click.option('--all', '-a', is_flag=True, help="Show all tasks due today across all projects")
 def today(all):
     """Show tasks due today"""
-    config = read_config_yaml()
-    dd = read_data(config)
-
-    if not all:
-        todos, inprogs, dones = split_items(dd, today=True)
-        todos = '\n'.join([str(x) for x in todos])
-        inprogs = '\n'.join([str(x) for x in inprogs])
-        dones = '\n'.join([str(x) for x in dones])
-
-        draw_table(todos, inprogs, dones, read_current_project())
-        return
-
-    projects = [f for f in os.listdir(get_clikan_home()) if f.endswith(".yaml")]
-    for project in projects:
-        p = project[1:-5]
-        config = read_config_yaml(p)
-        dd = read_data(config)
-        todos, inprogs, dones = split_items(dd, today=True)
-        todos = '\n'.join([str(x) for x in todos])
-        inprogs = '\n'.join([str(x) for x in inprogs])
-        dones = '\n'.join([str(x) for x in dones])
-        if todos or inprogs or dones:
-            draw_table(todos, inprogs, dones, p)
-
-
-
+    display(all, True)
 
 # Use a non-Click function to allow for repaint to work.
 
@@ -479,27 +454,37 @@ def draw_table(todos, inprogs, dones, project):
     table.add_row(todos, inprogs, dones)
     console.print(table)
 
-def display(all: bool = False):
+def display(all: bool = False, today: bool = False):
     """Show tasks in clikan"""
     config = read_config_yaml()
     dd = read_data(config)
-    project = read_current_project()
-    todos, inprogs, dones = split_items(dd)
-    if 'limits' in config and 'done' in config['limits']:
-        dones = dones[0:int(config['limits']['done'])]
-    else:
-        dones = dones[0:10]
 
-    todos = '\n'.join([str(x) for x in todos])
-    inprogs = '\n'.join([str(x) for x in inprogs])
-    dones = '\n'.join([str(x) for x in dones])
 
-    draw_table(todos, inprogs, dones, project)
+    if not all:
+        todos, inprogs, dones = split_items(dd, today=today)
+        todos = '\n'.join([str(x) for x in todos])
+        inprogs = '\n'.join([str(x) for x in inprogs])
+        dones = '\n'.join([str(x) for x in dones])
+
+        draw_table(todos, inprogs, dones, read_current_project())
+        return
+
+    projects = [f for f in os.listdir(get_clikan_home()) if f.endswith(".yaml")]
+    for project in projects:
+        p = project[1:-5]
+        config = read_config_yaml(p)
+        dd = read_data(config)
+        todos, inprogs, dones = split_items(dd, today=today)
+        todos = '\n'.join([str(x) for x in todos])
+        inprogs = '\n'.join([str(x) for x in inprogs])
+        dones = '\n'.join([str(x) for x in dones])
+        if todos or inprogs or dones:
+            draw_table(todos, inprogs, dones, p)
 
 @clikan.command()
 @click.option('--all', '-a', is_flag=True, help="Show all projects")
 def show(all):
-    display(all)
+    display(all, False)
 
 
 def read_data(config: dict[str, Any]) -> dict[str, dict[int, Entry]]:
