@@ -371,6 +371,7 @@ def switch(name=None):
     home = get_clikan_home()
     config_path = os.path.join(home, f".{name}.yaml")
     if not os.path.exists(config_path):
+        click.confirm("Project %s does not exist. Create?" % name, abort=True)
         click.echo("Project %s does not exist." % name)
         click.echo("Creating project %s." % name)
         setup_project(name)
