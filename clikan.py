@@ -364,7 +364,7 @@ def refresh(all: bool):
 
 @clikan.command()
 @click.argument('name', required=False)
-def switch(name=None):
+def switch(name: str|None = None):
     """Switch to a different project"""
     if name is None:
         name = "default"
@@ -390,21 +390,18 @@ def projects():
     click.echo("\nAvailable Projects:")
     click.echo("-" * 20)  # Adding a separator line
     
-    # Format current project with highlighting
     click.secho(f"→ {current_project} (active)", fg="green", bold=True)
     
-    # List other projects with indentation
     for project in projects:
         project_name = project
         click.echo(f"  {project_name}")
     
-    # Add a footer with total count
     click.echo("-" * 20)
     click.echo(f"Total projects: {len(projects) + 1}\n")
 
 @clikan.command()
 @click.argument('name')
-def delproj(name):
+def delproj(name: str):
     """Delete a project"""
     if name == "default":
         click.echo("Can't delete default project.")
@@ -431,7 +428,7 @@ def delproj(name):
 
 @clikan.command()
 @click.option('--all', '-a', is_flag=True, help="Show all tasks due today across all projects")
-def today(all):
+def today(all: bool):
     """Show tasks due today"""
     display(all, True)
 
@@ -584,6 +581,7 @@ def split_items(dd: dict[str, dict[int, Entry]], today: bool=False):
     dones = []
 
     for key, value in dd['data'].items():
+        key = f"{key}*" if value.desc else key
         s = f"[{key}] {value.task}"
         target_date = parse_timestamp(value.target_date) if value.target_date else None
         is_today = target_date and target_date.date() == datetime.datetime.now().date()
