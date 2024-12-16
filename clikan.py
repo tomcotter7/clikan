@@ -335,12 +335,13 @@ def edit(id, task, date, desc):
 @clikan.command()
 @click.option('--all', '-a', is_flag=True, help="Refresh all tasks across all projects")
 def refresh(all: bool):
-    """Refresh the task numbers and remove deleted tasks."""
+    """Refresh the task numbers and remove done tasks."""
 
     click.echo('Refreshing task numbers.')
     
-    def refresh(dd: dict[str, Any]) -> dict[str, Any]:
-        new_data = {i+1: value for i, value in enumerate(dd['data'].values())}
+    def refresh(dd: dict[str, dict[int, Entry]]) -> dict[str, dict[int, Entry]]:
+
+        new_data: dict[int, Entry] = {i+1: value for i, value in enumerate(dd['data'].values()) if value.status != 'done'}
         dd['data'] = new_data
         dd['deleted'] = {}
         return dd
