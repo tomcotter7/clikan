@@ -537,7 +537,7 @@ def write_data(config: dict[str, Any], data: dict[str, dict[int, Entry]]):
         }
     }
     with open(config["clikan_data"], 'w') as outfile:
-        yaml.dump(formatted_data, outfile, default_flow_style=False)
+        yaml.dump(formatted_data, outfile, default_flow_style=False, allow_unicode=True, width=float('inf'))
 
 
 def get_clikan_home():
