@@ -1,15 +1,15 @@
-# clikan: CLI (Personal) Kanban
-There has been a little chatter about 'personal' kanban on the tubes lately.  I don't know about the need to hype it as personal, but if you're looking to get your head wrapped around stuff needing to get done - then kanban is a healthy tool.  clikan is a super simple command-line utility for tracking tasks following the Japanese Kanban (boarding) style.  clikan's core intent is to be easy to use, and to maintain simplicity.
+# clikan-ext: CLI (Personal) Kanban (extended)
 
-![icon](docs/icon-256x256.png)
+> [!NOTE]
+> > This is a fork of [clikan](https://github.com/kitplummer/clikan) originally created by [Kit Plummer](https://github.com/kitplummer). This fork extends the original project with additional commands. The original project is not longer maintained.
+
+clikan is a super simple command-line utility for tracking tasks following the Japanese Kanban (boarding) style.
 
 ## Installation
 
-$ `pip install clikan`
-
-### Alternative Installation with Guix
-
-$ `guix install clikan`
+$ `git clone git@github.com:tomcotter7/clikan.git`
+$ `cd clikan`
+$ `pip install .`
 
 ### Create a `.clikan.yaml` in your $HOME directory
 
@@ -37,54 +37,23 @@ $ `clikan configure`
 
 to create a default data file location.
 
-This is where the tool will store the history of files.  It's configurable so you can put the data in a Dropbox or other cloud-watched directory for safe archiving/backing up.
-
-If you're like me, even `clikan` is a bunch too many characters to type, so shorten with an alias in my shell config to `clik`.
-
 ## Usage
-The basic usage of clikan breaks down into three basic commands:
 
-### Show
+See `clikan --help` once installed for a list of commands.
 
-$ `clikan show` (alias: s)
-
-### Add
-
-$ `clikan add [task text]` (alias: a)
-
-### Promote
-
-$ `clikan promote [task id]` (alias: p)
-
-And there are more supporting commands:
-
-### Regress
-
-$ `clikan regress [task id]`
-
-### Delete
-
-$ `clikan delete [task id]` (alias: d)
-
-### Configure
-
-$ `clikan configure`
-
-### Screenshot
-
-![Screenshot](screenshot.png)
+All commands can be run with their shortest possible unique form.  For example, `clikan add` can be run as `clikan a`.
 
 ## Development
 
-It's Python code.  Fork, fix, and submit a PR - it'd be super appreciated.
+Install the package in editable mode:
 
-Tests?  Um, yeah.
+$ `pip install -e .`
+
+This repo is open for PRs.
 
 ### Testing
 
-Updated test suite to include 3.6-3.9 on Windows, macOS and Ubuntu.
-
-***Definitely*** need some help here.  There is a basic test suite available in `clikan_test.py`.
+There is a basic test suite available in `clikan_test.py`.
 
 To run it, make sure ~/.clikan.dat is empty, or specify a test locale
 with the `CLIKAN_HOME` environment variable the you can run:
@@ -95,7 +64,6 @@ CLIKAN_HOME=/tmp pytest clikan_test.py
 
 The project uses this environment variable feature to test different functional configuration scenarios internally to the test suite.
 
-Am considering adding the `--config_file` feature to allow for specifying the path to the config file as well.  If this is something you're interesting in or believe would be beneficial let me know through an Github issue.
 ## License
 
 ```
@@ -109,10 +77,3 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
-
-## Support
-
-Github Issues
-https://github.com/kitplummer/clikan/issues
-
-Feel free to use issues as a forum-like thing too, ask questions or post comments.
