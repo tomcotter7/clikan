@@ -99,11 +99,13 @@ def clikan():
 def setup_project(name: str):
     """Setup a new project"""
     home = get_clikan_home()
-    data_path = os.path.join(home, f".{name}.dat")
     config_path = os.path.join(home, f".{name}.yaml")
     if (os.path.exists(config_path) and not
             click.confirm('Config file exists. Do you want to overwrite?')):
         return
+
+    home = home.replace(os.environ["HOME"], "$HOME")
+    data_path = os.path.join(home, f".{name}.dat")
     with open(config_path, 'w') as outfile:
         conf = {'clikan_data': data_path}
         yaml.dump(conf, outfile, default_flow_style=False)
@@ -139,6 +141,7 @@ def parse_date(date: str) -> datetime.datetime:
 def expand(task):
     """Add a short description to the task, for more detail"""
     config = read_config_yaml()
+    
     dd = read_data(config)
     item = dd['data'].get(int(task))
 
@@ -421,7 +424,7 @@ def delproj(name: str):
         return
     
     config = read_config_yaml()
-    data = config["clikan_data"]
+    data = os.path.expandvars(config["clikan_data"])
     os.remove(config_path)
     os.remove(data)
     click.echo(f"Deleted project {name}")
@@ -491,8 +494,9 @@ def show(all):
 
 def read_data(config: dict[str, Any]) -> dict[str, dict[int, Entry]]:
     """Read the existing data from the config datasource"""
+    cd = os.path.expandvars(config["clikan_data"])
     try:
-        with open(config["clikan_data"], 'r') as stream:
+        with open(cd, 'r') as stream:
             try:
                 data = yaml.safe_load(stream)
                 return {
@@ -525,7 +529,7 @@ def read_data(config: dict[str, Any]) -> dict[str, dict[int, Entry]]:
     except IOError:
         click.echo("No data, initializing data file.")
         write_data(config, {"data": {}, "deleted": {}})
-        with open(config["clikan_data"], 'r') as stream:
+        with open(cd, 'r') as stream:
             return yaml.safe_load(stream)
 
 
@@ -539,15 +543,17 @@ def write_data(config: dict[str, Any], data: dict[str, dict[int, Entry]]):
             k: [v.status, v.task, v.last_updated, v.target_date, v.desc] for k, v in data["deleted"].items()
         }
     }
-    with open(config["clikan_data"], 'w') as outfile:
+    cd = os.path.expandvars(config["clikan_data"])
+    with open(cd, 'w') as outfile:
         yaml.dump(formatted_data, outfile, default_flow_style=False, allow_unicode=True, width=float('inf'))
 
 
 def get_clikan_home():
     home = os.environ.get('CLIKAN_HOME')
     if not home:
-        home = os.path.expanduser('~/.clikan/')
-        if not os.path.exists(home) :
+        home = "${HOME}/.clikan"
+        home = os.path.expandvars(home)
+        if not os.path.exists(home):
             os.makedirs(home)
     return home
 
