@@ -319,7 +319,10 @@ def edit(id, task, date, desc):
         if task:
             new_item.task = task
         if date:
-            new_item.target_date = timestamp(parse_date(date))
+            if date == "None":
+                new_item.target_date = None
+            else:
+                new_item.target_date = timestamp(parse_date(date))
         if desc:
             new_item.desc = desc
         
