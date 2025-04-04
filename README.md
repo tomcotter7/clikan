@@ -1,7 +1,10 @@
 # clikan-ext: CLI (Personal) Kanban (extended)
 
 > [!NOTE]
-> > This is a fork of [clikan](https://github.com/kitplummer/clikan) originally created by [Kit Plummer](https://github.com/kitplummer). This fork extends the original project with additional commands. The original project is not longer maintained.
+> This is a fork of [clikan](https://github.com/kitplummer/clikan) originally created by [Kit Plummer](https://github.com/kitplummer). This fork extends the original project with additional commands. The original project is not longer maintained.
+
+> [!NOTE]
+> This is no longer actively maintained, I have rewritten the functionality in a TUI called [Termflow](https://github.com/tomcotter7/termflow)
 
 clikan is a super simple command-line utility for tracking tasks following the Japanese Kanban (boarding) style.
 
